@@ -38,7 +38,6 @@ pip install generate-chroma
 git clone https://github.com/generatebio/chroma.git
 pip install -e chroma # use `-e` for it to be editable locally. 
 ```
-
 ## Sampling
 **Unconditional monomer**. We provide a unified entry point to both unconditional and conditional protein design with the `Chroma.sample()` method. When no conditioners are specified, we can sample a simple 200-amino acid monomeric protein with
 ```python

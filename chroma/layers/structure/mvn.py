@@ -25,7 +25,7 @@ from typing import Optional
 import numpy as np
 import torch
 import torch.nn.functional as F
-
+import intel_extension_for_pytorch as ipex
 from chroma.layers import conv
 from chroma.layers.structure import backbone
 

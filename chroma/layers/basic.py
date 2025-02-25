@@ -19,6 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import intel_extension_for_pytorch as ipex
 from chroma.layers.norm import MaskedBatchNorm1d
 
 

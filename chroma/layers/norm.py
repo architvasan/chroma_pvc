@@ -14,7 +14,7 @@
 
 import torch
 import torch.nn as nn
-
+import intel_extension_for_pytorch as ipex
 
 class MaskedBatchNorm1d(nn.Module):
     """A masked version of nn.BatchNorm1d. Only tested for 3D inputs.

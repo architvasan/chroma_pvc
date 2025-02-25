@@ -23,7 +23,7 @@ from typing import List, Literal, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-
+import intel_extension_for_pytorch as ipex
 from chroma.constants import AA20_3
 from chroma.data.protein import Protein
 from chroma.layers.structure.backbone import ProteinBackbone
@@ -76,10 +76,11 @@ class Chroma(nn.Module):
 
         # If no device is explicity specified automatically set device
         if device is None:
-            if torch.cuda.is_available():
-                device = "cuda"
-            else:
-                device = "cpu"
+            device = "xpu"
+            #if torch.cuda.is_available():
+            #    device = "cuda"
+            #else:
+            #    device = "cpu"
 
         self.backbone_network = graph_backbone.load_model(
             weights_backbone, device=device, strict=strict, verbose=verbose

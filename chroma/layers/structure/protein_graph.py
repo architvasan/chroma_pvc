@@ -30,7 +30,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import intel_extension_for_pytorch as ipex
 from chroma.data.protein import Protein
 from chroma.layers import graph
 from chroma.layers.basic import FourierFeaturization, PositionalEncoding

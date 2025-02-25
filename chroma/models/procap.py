@@ -19,6 +19,7 @@ import torch
 import torch.nn as nn
 from torch.nn.functional import pad
 
+import intel_extension_for_pytorch as ipex
 from chroma.data.xcs import validate_XC
 from chroma.layers.basic import FourierFeaturization
 from chroma.layers.structure import diffusion

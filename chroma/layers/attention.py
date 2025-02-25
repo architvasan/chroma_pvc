@@ -15,6 +15,7 @@
 import torch
 import torch.nn as nn
 
+import intel_extension_for_pytorch as ipex
 
 class ScaledDotProductAttention(nn.Module):
     """Scaled dot product attention as described in Eqn 1 of Vaswani et al. 2017 [https://arxiv.org/abs/1706.03762].

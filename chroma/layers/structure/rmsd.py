@@ -19,6 +19,7 @@ import torch
 import torch.linalg
 import torch.nn as nn
 
+import intel_extension_for_pytorch as ipex
 from chroma.layers import graph
 from chroma.layers.linalg import eig_leading
 from chroma.layers.structure import geometry, protein_graph

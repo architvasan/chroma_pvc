@@ -22,7 +22,7 @@ import torch
 import torch.nn.functional as F
 from scipy.sparse.csgraph import shortest_path
 from torch import nn
-
+import intel_extension_for_pytorch as ipex
 import chroma.utility.chroma
 from chroma.data.protein import Protein
 from chroma.data.xcs import validate_XC
@@ -371,7 +371,11 @@ class ShapeConditioner(Conditioner):
         X_target = torch.Tensor(X_target).float().unsqueeze(0)
         if torch.cuda.is_available():
             X_target = X_target.to("cuda")
-
+        else:
+            try:
+                X_target = X_target.to("xpu")
+            except:
+                pass
         chain_ix = torch.arange(4 * num_residues, device=X_target.device) / 4.0
         distance_1D = (chain_ix[None, :, None] - chain_ix[None, None, :]).abs()
         # Scaling fit log-log to large scale single chain 6HYP
@@ -537,6 +541,8 @@ class ProCapConditioner(Conditioner):
         if device is None:
             if torch.cuda.is_available():
                 self.model.to("cuda")
+            else:
+                self.model.to("xpu")
         else:
             self.model.to(device)
         self.caption = caption
@@ -652,6 +658,8 @@ class ProClassConditioner(Conditioner):
         if device is None:
             if torch.cuda.is_available():
                 self.proclass_model.to("cuda")
+            else:
+                self.proclass_model.to("xpu")
         else:
             self.proclass_model.to(device)
 

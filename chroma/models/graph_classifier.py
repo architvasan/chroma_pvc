@@ -21,7 +21,7 @@ from types import SimpleNamespace
 
 import torch
 import torch.nn as nn
-
+import intel_extension_for_pytorch as ipex
 from chroma.data.xcs import validate_XC
 from chroma.layers import basic
 from chroma.layers.attention import AttentionChainPool

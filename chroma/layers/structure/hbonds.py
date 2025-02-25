@@ -21,6 +21,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import intel_extension_for_pytorch as ipex
+
 from chroma.layers.graph import collect_neighbors
 from chroma.layers.structure import protein_graph
 from chroma.layers.structure.geometry import normed_vec

@@ -21,6 +21,8 @@
 from typing import Callable, Tuple
 
 import torch
+
+import intel_extension_for_pytorch as ipex
 from tqdm.autonotebook import tqdm
 
 
