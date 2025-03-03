@@ -20,6 +20,7 @@ import copy
 import inspect
 from collections import defaultdict, namedtuple
 from typing import List, Literal, Optional, Tuple, Union
+import gc
 
 import torch
 import torch.nn as nn
@@ -75,22 +76,19 @@ class Chroma(nn.Module):
         warnings.filterwarnings("ignore")
 
         # If no device is explicity specified automatically set device
-        if device is None:
-            device = "xpu"
-            #if torch.cuda.is_available():
-            #    device = "cuda"
-            #else:
-            #    device = "cpu"
+        device = 'xpu'
+        #if device is None:
+        #    if torch.cuda.is_available():
+        #        device = "cuda"
+        #    else:
+        #        device = "cpu"
 
         self.backbone_network = graph_backbone.load_model(
             weights_backbone, device=device, strict=strict, verbose=verbose
         ).eval()
 
         self.design_network = graph_design.load_model(
-            weights_design,
-            device=device,
-            strict=strict,
-            verbose=False,
+            weights_design, device=device, strict=strict, verbose=False,
         ).eval()
 
     def sample(
@@ -111,6 +109,7 @@ class Chroma(nn.Module):
         trajectory_length: int = 200,
         full_output: bool = False,
         # Sidechain Args
+        design_samples: int=1,
         design_ban_S: Optional[List[str]] = None,
         design_method: Literal["potts", "autoregressive"] = "potts",
         design_selection: Optional[Union[str, torch.Tensor]] = None,
@@ -173,17 +172,14 @@ class Chroma(nn.Module):
                     Can be `potts` and `autoregressive`. Default is `potts`.
                 design_selection (str, optional): Clamp selection for
                     conditioning on a subsequence during sequence sampling. Can be
-                    1) a PyMOl-like selection string
-                        (https://pymolwiki.org/index.php/Property_Selectors)
-                    or
-                    2) a binary design mask indicating positions with shape `(num_batch,
-                    num_residues)`. 1. indicating the residue to be designed and
-                    0. indicates the residue will be masked.
-                    e.g.
-                        design_selection = torch.Tensor([[0., 1. ,1., 0., 1. ... ]])
-                    or
-                    3) position-specific valid amino acid choices with shape
+                    either a selection string or a binary design mask indicating
+                    positions to be sampled with shape `(num_batch, num_residues)` or
+                    position-specific valid amino acid choices with shape
                     `(num_batch, num_residues, num_alphabet)`.
+                design_mask_sample (Tensor, optional): Binary design mask indicating
+                    which positions can be sampled with shape `(num_batch, num_residues)`.
+                    or which amino acids can be sampled at which position with
+                    shape `(num_batch, num_residues, num_alphabet)`.
                 design_t (float or torch.Tensor, optional): Diffusion time for models
                     trained with diffusion augmentation of input structures. Setting `t=0`
                     or `t=None` will condition the model to treat the structure as
@@ -223,7 +219,7 @@ class Chroma(nn.Module):
 
         # Get KWARGS
         input_args = locals()
-
+        full_output = False
         # Dynamically get acceptable kwargs for each method
         backbone_keys = set(inspect.signature(self._sample).parameters)
         design_keys = set(inspect.signature(self.design).parameters)
@@ -231,7 +227,6 @@ class Chroma(nn.Module):
         # Filter kwargs for each method using dictionary comprehension
         backbone_kwargs = {k: input_args[k] for k in input_args if k in backbone_keys}
         design_kwargs = {k: input_args[k] for k in input_args if k in design_keys}
-
         # Perform Sampling
         sample_output = self._sample(**backbone_kwargs)
 
@@ -245,26 +240,28 @@ class Chroma(nn.Module):
         if design_method is None:
             proteins = protein_sample
         else:
-            if isinstance(protein_sample, list):
-                proteins = [
-                    self.design(protein, **design_kwargs) for protein in protein_sample
-                ]
-            else:
-                proteins = self.design(protein_sample, **design_kwargs)
-
+            protein = protein_sample
+            proteins = []
+            for i in range(design_samples):
+                proteins.append(self.design(protein, **design_kwargs))
+                print(proteins)
         # Perform conditioner postprocessing
         if (conditioner is not None) and hasattr(conditioner, "_postprocessing_"):
             proteins, output_dictionary = self._postprocess(
                 conditioner, proteins, output_dictionary
             )
+        print(proteins)
 
         if full_output:
+            print("full output")
+            print(proteins)
             return proteins, output_dictionary
         else:
             return proteins
 
     def _postprocess(self, conditioner, proteins, output_dictionary):
         if output_dictionary is None:
+            print(f"output_dict is none")
             if isinstance(proteins, list):
                 proteins = [
                     conditioner._postprocessing_(protein) for protein in proteins
@@ -273,9 +270,9 @@ class Chroma(nn.Module):
                 proteins = conditioner._postprocessing_(proteins)
         else:
             if isinstance(proteins, list):
+                print("protein is a list and have a dictionary")
                 p_dicts = []
-                proteins_out = []
-                print("Proteins is a list!")
+                proteins = []
                 for i, protein in enumerate(proteins):
                     p_dict = {}
                     for key, value in output_dictionary.items():
@@ -283,18 +280,16 @@ class Chroma(nn.Module):
 
                     protein, p_dict = conditioner._postprocessing_(protein, p_dict)
                     p_dicts.append(p_dict)
-                    proteins_out.append(protein)
+
                 # Merge Output Dictionaries
                 output_dictionary = defaultdict(list)
                 for p_dict in p_dicts:
                     for k, v in p_dict.items():
                         output_dictionary[k].append(v)
             else:
-                proteins_out, output_dictionary = conditioner._postprocessing_(
+                proteins, output_dictionary = conditioner._postprocessing_(
                     proteins, output_dictionary
                 )
-        proteins = proteins_out
-        print(proteins)
         return proteins, output_dictionary
 
     def _sample(
@@ -356,44 +351,93 @@ class Chroma(nn.Module):
             full_output_dictionary (dict, optional): Additional outputs if
                 `full_output=True`.
         """
-
+        samples = 1
+        full_output = False
         if protein_init is not None:
             X_unc, C_unc, S_unc = protein_init.to_XCS()
-            X_unc = torch.cat([X_unc] * samples, dim = 0)
-            C_unc = torch.cat([C_unc] * samples, dim = 0)
-            S_unc = torch.cat([S_unc] * samples, dim = 0)
         else:
             X_unc, C_unc, S_unc = self._init_backbones(samples, chain_lengths)
 
-        outs = self.backbone_network.sample_sde(
-            C_unc,
-            X_init=X_unc,
-            conditioner=conditioner,
-            tspan=tspan,
-            langevin_isothermal=langevin_isothermal,
-            integrate_func=integrate_func,
-            sde_func=sde_func,
-            langevin_factor=langevin_factor,
-            inverse_temperature=inverse_temperature,
-            N=steps,
-            initialize_noise=initialize_noise,
-            **kwargs,
-        )
+        chunk_size = 100
+        num_batches = (steps + chunk_size - 1) // chunk_size
+        X_current, C_current, S_current = X_unc, C_unc, S_unc
+        outs_final = {'C': None,
+                      'X_sample': None,
+                      'X_trajectory': [],
+                      'Xhat_trajectory': [],
+                      'Xunc_trajectory': []}
+        batch_idx = 0
+        while batch_idx < num_batches:
+            current_steps = min(chunk_size, steps - batch_idx * chunk_size)
+            if batch_idx != num_batches - 1:
+                try: 
+                    batch_outs = self.backbone_network.sample_sde(
+                                C_current,
+                                X_init=X_current,
+                                conditioner=conditioner,
+                                tspan=tspan,
+                                langevin_isothermal=langevin_isothermal,
+                                integrate_func=integrate_func,
+                                sde_func=sde_func,
+                                langevin_factor=langevin_factor,
+                                inverse_temperature=inverse_temperature,
+                                N=current_steps,
+                                initialize_noise=initialize_noise,
+                                **kwargs,
+                            )
+                    X_current = batch_outs['X_sample']
+                    C_current = batch_outs['C']
+                    S_current = S_unc
+                    outs_final['X_sample'] = X_current
+                    outs_final['C'] = C_current
+                    outs_final['X_trajectory'].extend(batch_outs['X_trajectory'])
+                    outs_final['Xhat_trajectory'].extend(batch_outs['Xhat_trajectory'])
+                    outs_final['Xunc_trajectory'].extend(batch_outs['Xunc_trajectory'])
+                    #torch.cuda.empty_cache()
+                    gc.collect()
+                    batch_idx += 1
+                except torch._C._LinAlgError as e:
+                    print(e)
+                    continue
+            else:
+                batch_outs = self.backbone_network.sample_sde(
+                                C_current,
+                                X_init=X_current,
+                                conditioner=conditioner,
+                                tspan=tspan,
+                                langevin_isothermal=langevin_isothermal,
+                                integrate_func=integrate_func,
+                                sde_func=sde_func,
+                                langevin_factor=langevin_factor,
+                                inverse_temperature=inverse_temperature,
+                                N=current_steps,
+                                initialize_noise=initialize_noise,
+                                **kwargs,
+                            )
+                X_current = batch_outs['X_sample']
+                C_current = batch_outs['C']
+                S_current = S_unc
+                outs_final['X_sample'] = X_current
+                outs_final['C'] = C_current
+                outs_final['X_trajectory'].extend(batch_outs['X_trajectory'])
+                outs_final['Xhat_trajectory'].extend(batch_outs['Xhat_trajectory'])
+                outs_final['Xunc_trajectory'].extend(batch_outs['Xunc_trajectory'])
+                #torch.cuda.empty_cache()
+                gc.collect()
+                batch_idx += 1
 
-        if S_unc.shape != outs["C"].shape:
+
+        outs = outs_final
+        if S_current.shape != outs["C"].shape:
             S = torch.zeros_like(outs["C"]).long()
         else:
-            S = S_unc
-
+            S = S_current
         assert S.shape == outs["C"].shape
-
         proteins = [
-            Protein.from_XCS(outs_X[None, ...], outs_C[None, ...], outs_S[None, ...])
-            for outs_X, outs_C, outs_S in zip(outs["X_sample"], outs["C"], S)
+            Protein.from_XCS(outs["X_sample"], outs["C"], S)
         ]
         if samples == 1:
             proteins = proteins[0]
-
         if not full_output:
             return proteins
         else:
@@ -534,7 +578,6 @@ class Chroma(nn.Module):
             if isinstance(design_selection, str):
                 design_selection = protein.get_mask(design_selection)
             mask_sample = design_selection
-
         X_sample, S_sample, _ = self.design_network.sample(
             X,
             C,
@@ -658,9 +701,7 @@ class Chroma(nn.Module):
         return metric_dictionary
 
     def score_sequence(
-        self,
-        proteins: Union[List[Protein], Protein],
-        t: Optional[torch.Tensor] = None,
+        self, proteins: Union[List[Protein], Protein], t: Optional[torch.Tensor] = None,
     ) -> dict:
         """
         Scores designed Proteins with the following Chroma scores:
