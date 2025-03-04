@@ -24,8 +24,6 @@ from typing import List, Literal, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 import intel_extension_for_pytorch as ipex
-
-
 from chroma.constants import AA20_3
 from chroma.data.protein import Protein
 from chroma.layers.structure.backbone import ProteinBackbone
@@ -115,7 +113,6 @@ class Chroma(nn.Module):
         # Sidechain Args
         design_ban_S: Optional[List[str]] = None,
         design_method: Literal["potts", "autoregressive"] = "potts",
-        num_designs: int = 1,
         design_selection: Optional[Union[str, torch.Tensor]] = None,
         design_t: Optional[float] = 0.5,
         temperature_S: float = 0.01,
@@ -249,15 +246,9 @@ class Chroma(nn.Module):
             proteins = protein_sample
         else:
             if isinstance(protein_sample, list):
-                if num_designs > 1:
-                    proteins = []
-                    for prot in protein_sample:
-                        if num_designs > 1:
-                            proteins.extend(self.design(prot, **design_kwargs))
-                else:
-                    proteins = [
-                        self.design(protein, **design_kwargs) for protein in protein_sample
-                    ]
+                proteins = [
+                    self.design(protein, **design_kwargs) for protein in protein_sample
+                ]
             else:
                 proteins = self.design(protein_sample, **design_kwargs)
 
@@ -284,6 +275,7 @@ class Chroma(nn.Module):
             if isinstance(proteins, list):
                 p_dicts = []
                 proteins_out = []
+                print("Proteins is a list!")
                 for i, protein in enumerate(proteins):
                     p_dict = {}
                     for key, value in output_dictionary.items():
@@ -292,16 +284,17 @@ class Chroma(nn.Module):
                     protein, p_dict = conditioner._postprocessing_(protein, p_dict)
                     p_dicts.append(p_dict)
                     proteins_out.append(protein)
-                proteins = proteins_out
                 # Merge Output Dictionaries
                 output_dictionary = defaultdict(list)
                 for p_dict in p_dicts:
                     for k, v in p_dict.items():
                         output_dictionary[k].append(v)
             else:
-                proteins, output_dictionary = conditioner._postprocessing_(
+                proteins_out, output_dictionary = conditioner._postprocessing_(
                     proteins, output_dictionary
                 )
+        proteins = proteins_out
+        print(proteins)
         return proteins, output_dictionary
 
     def _sample(
@@ -366,11 +359,9 @@ class Chroma(nn.Module):
 
         if protein_init is not None:
             X_unc, C_unc, S_unc = protein_init.to_XCS()
-            if samples>1:
-                X_unc = torch.cat([X_unc] * samples, dim = 0)
-                C_unc = torch.cat([C_unc] * samples, dim = 0)
-                S_unc = torch.cat([S_unc] * samples, dim = 0)
-
+            X_unc = torch.cat([X_unc] * samples, dim = 0)
+            C_unc = torch.cat([C_unc] * samples, dim = 0)
+            S_unc = torch.cat([S_unc] * samples, dim = 0)
         else:
             X_unc, C_unc, S_unc = self._init_backbones(samples, chain_lengths)
 
@@ -478,7 +469,6 @@ class Chroma(nn.Module):
         potts_proposal: Literal["dlmc", "chromatic"] = "dlmc",
         potts_symmetry_order: Optional[int] = None,
         verbose: bool = False,
-        num_designs: int = 1,
     ) -> Protein:
         """Performs sequence design and repacking on the specified Protein object
         and returns an updated copy.
@@ -532,13 +522,6 @@ class Chroma(nn.Module):
         protein.canonicalize()
 
         X, C, S = protein.to_XCS()
-        if num_designs>1:
-                X = torch.cat([X] * num_designs, dim = 0)
-                C = torch.cat([C] * num_designs, dim = 0)
-                S = torch.cat([S] * num_designs, dim = 0)
-
-        else:
-            pass
         if design_method not in set(["potts", "autoregressive"]):
             raise NotImplementedError(
                 "Valid design methods are potts and autoregressive, recieved"
@@ -568,16 +551,8 @@ class Chroma(nn.Module):
             verbose=verbose,
             symmetry_order=potts_symmetry_order,
         )
-        if num_designs==1:
-            protein.sys.update_with_XCS(X_sample, C=None, S=S_sample)
-            return protein
-        else:
-            proteins = []
-            for X_s, S_s in zip(X_sample, S_sample):
-                protein_s = copy.deepcopy(protein)
-                protein_s.update_with_XCS(X_s, C = None, S = S_s)
-            proteins.append(protein_s)
-            return proteins
+        protein.sys.update_with_XCS(X_sample, C=None, S=S_sample)
+        return protein
 
     def _design_ar(self, protein, alphabet=None, temp_S=0.1, temp_chi=1e-3):
         X, C, S = protein.to_XCS()
