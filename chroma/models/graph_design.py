@@ -1164,6 +1164,7 @@ class BackboneEncoderGNN(nn.Module):
         graph_criterion: str = "knn",
         graph_random_min_local: int = 20,
         checkpoint_gradients: bool = False,
+        centered_pdb_file: str = "2g3n",
         **kwargs
     ) -> None:
         """Initialize BackboneEncoderGNN."""
@@ -1197,6 +1198,7 @@ class BackboneEncoderGNN(nn.Module):
             graph_kwargs=graph_kwargs,
             node_features=args.node_features,
             edge_features=args.edge_features,
+            centered_pdb = self.centered_pdb_file
         )
 
         self.gnn = graph.GraphNN(
@@ -2299,6 +2301,7 @@ def load_model(
     Returns:
         model (GraphDesign): Instance of `GraphDesign` with loaded weights.
     """
+    print(weight_file)
     return utility_load_model(
         weight_file,
         GraphDesign,

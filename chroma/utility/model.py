@@ -61,6 +61,7 @@ def load_model(
     strict=False,
     strict_unexpected=True,
     verbose=True,
+    centered_pdb_file = "2g3n",
 ):
     """Load model saved with save_model.
 

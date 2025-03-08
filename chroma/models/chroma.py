@@ -69,6 +69,7 @@ class Chroma(nn.Module):
         device: Optional[str] = None,
         strict: bool = False,
         verbose: bool = False,
+        centered_pdb_file: str = "2g3n"
     ) -> None:
         super().__init__()
 
@@ -85,14 +86,15 @@ class Chroma(nn.Module):
             #    device = "cpu"
 
         self.backbone_network = graph_backbone.load_model(
-            weights_backbone, device=device, strict=strict, verbose=verbose
+            weights_backbone, device=device, strict=strict, verbose=True,
+            centered_pdb_file=self.centered_pdb_file
         ).eval()
 
         self.design_network = graph_design.load_model(
             weights_design,
             device=device,
             strict=strict,
-            verbose=False,
+            verbose=True,
         ).eval()
 
     def sample(
@@ -264,7 +266,7 @@ class Chroma(nn.Module):
         # Perform conditioner postprocessing
         if (conditioner is not None) and hasattr(conditioner, "_postprocessing_"):
             proteins, output_dictionary = self._postprocess(
-                conditioner, proteins, output_dictionary
+                conditioner, proteins, output_dictionary, num_designs
             )
 
         if full_output:
@@ -272,7 +274,7 @@ class Chroma(nn.Module):
         else:
             return proteins
 
-    def _postprocess(self, conditioner, proteins, output_dictionary):
+    def _postprocess(self, conditioner, proteins, output_dictionary, num_designs):
         if output_dictionary is None:
             if isinstance(proteins, list):
                 proteins = [
@@ -287,7 +289,7 @@ class Chroma(nn.Module):
                 for i, protein in enumerate(proteins):
                     p_dict = {}
                     for key, value in output_dictionary.items():
-                        p_dict[key] = value[i]
+                        p_dict[key] = value[int(i/num_designs)]
 
                     protein, p_dict = conditioner._postprocessing_(protein, p_dict)
                     p_dicts.append(p_dict)
@@ -435,6 +437,7 @@ class Chroma(nn.Module):
                     "Xunc_trajectory": trajectories_Xunc,
                 }
 
+            print(len(proteins))
             return proteins, full_output_dictionary
 
     def _format_trajectory(self, outs, key, trajectory_length):
@@ -569,14 +572,21 @@ class Chroma(nn.Module):
             symmetry_order=potts_symmetry_order,
         )
         if num_designs==1:
+            print("when using num_des = 1, these are data shapes for X, S")
+            print(X_sample.shape)
+            print(S_sample.shape)
             protein.sys.update_with_XCS(X_sample, C=None, S=S_sample)
             return protein
         else:
             proteins = []
             for X_s, S_s in zip(X_sample, S_sample):
                 protein_s = copy.deepcopy(protein)
-                protein_s.update_with_XCS(X_s, C = None, S = S_s)
-            proteins.append(protein_s)
+                X_s = X_s.unsqueeze(0)
+                S_s = S_s.unsqueeze(0)
+                protein_s.sys.update_with_XCS(X_s, C = None, S = S_s)
+                proteins.append(protein_s)
+            print(f"when using more designs,"+\
+                    f"this many proteins: {len(proteins)}")
             return proteins
 
     def _design_ar(self, protein, alphabet=None, temp_S=0.1, temp_chi=1e-3):

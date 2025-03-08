@@ -92,6 +92,7 @@ class GraphBackbone(nn.Module):
         checkpoint_gradients: bool = False,
         prediction_type: str = "X0",
         num_graph_cycles: int = 1,
+        centered_pdb_file: str = "2g3n",
         **kwargs,
     ):
         """Initialize GraphBackbone network."""
@@ -131,6 +132,7 @@ class GraphBackbone(nn.Module):
                     graph_criterion=args.graph_criterion,
                     graph_random_min_local=args.graph_random_min_local,
                     checkpoint_gradients=checkpoint_gradients,
+                centered_pdb_file = self.centered_pdb_file,
                 )
                 for i in range(self.num_graph_cycles)
             ]
@@ -381,6 +383,7 @@ def load_model(
     strict: bool = False,
     strict_unexpected: bool = False,
     verbose: bool = True,
+    centered_pdb_file: str = "2g3n",
 ) -> GraphBackbone:
     """Load model `GraphBackbone`
 
@@ -403,6 +406,8 @@ def load_model(
     Returns:
         model (GraphBackbone): Instance of `GraphBackbone` with loaded weights.
     """
+    print("Graph backbone")
+    print(weight_file)
     return utility_load_model(
         weight_file,
         GraphBackbone,
@@ -410,4 +415,5 @@ def load_model(
         strict=strict,
         strict_unexpected=strict_unexpected,
         verbose=verbose,
+        centered_pdb_file = centered_pdb_file
     )
