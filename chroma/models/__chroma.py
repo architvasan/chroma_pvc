@@ -76,9 +76,12 @@ class Chroma(nn.Module):
         warnings.filterwarnings("ignore")
 
         # If no device is explicity specified automatically set device
-        device = 'cuda'
         if device is None:
-            device = "cpu"
+            #device = "xpu"
+            if torch.cuda.is_available():
+                device = "cuda"
+            else:
+                device = "cpu"
 
         self.backbone_network = graph_backbone.load_model(
             weights_backbone, device=device, strict=strict, verbose=verbose
