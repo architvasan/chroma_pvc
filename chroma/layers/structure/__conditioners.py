@@ -374,7 +374,7 @@ class ShapeConditioner(Conditioner):
         """Plan a layout using Gromov-Wasserstein Optimal transport"""
 
         X_target = torch.Tensor(X_target).float().unsqueeze(0)
-        X_target = X_target.to("xpu")
+        X_target = X_target.to("cuda")
 
         chain_ix = torch.arange(4 * num_residues, device=X_target.device) / 4.0
         distance_1D = (chain_ix[None, :, None] - chain_ix[None, None, :]).abs()
