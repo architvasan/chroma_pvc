@@ -76,7 +76,7 @@ class Chroma(nn.Module):
 
         # If no device is explicity specified automatically set device
         if device is None:
-            device = "cuda"
+            #device = "xpu"
             if torch.cuda.is_available():
                 device = "cuda"
             else:
