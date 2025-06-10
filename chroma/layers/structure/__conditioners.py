@@ -538,7 +538,7 @@ class ProCapConditioner(Conditioner):
                 model, device=device, strict_unexpected=False
             )
         self.model.eval()
-        self.model.to("xpu")
+        self.model.to("cuda")
         self.caption = caption
         self.register_buffer("chain_id", torch.Tensor([int(chain_id)]))
         self.weight = weight
@@ -650,7 +650,7 @@ class ProClassConditioner(Conditioner):
         self.proclass_model.eval()
 
         # Move Model to the indicated device
-        self.proclass_model.to("xpu")
+        self.proclass_model.to("cuda")
 
         self._transform_inputs()
         self._validate_inputs()
