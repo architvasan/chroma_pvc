@@ -77,11 +77,8 @@ class Chroma(nn.Module):
 
         # If no device is explicity specified automatically set device
         device = 'cuda'
-        #if device is None:
-        #    if torch.cuda.is_available():
-        #        device = "cuda"
-        #    else:
-        #        device = "cpu"
+        if device is None:
+            device = "cpu"
 
         self.backbone_network = graph_backbone.load_model(
             weights_backbone, device=device, strict=strict, verbose=verbose
