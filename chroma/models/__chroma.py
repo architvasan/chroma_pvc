@@ -76,7 +76,7 @@ class Chroma(nn.Module):
         warnings.filterwarnings("ignore")
 
         # If no device is explicity specified automatically set device
-        device = 'xpu'
+        device = 'cuda'
         #if device is None:
         #    if torch.cuda.is_available():
         #        device = "cuda"
