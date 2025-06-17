@@ -17,7 +17,6 @@ import platform
 import torch
 import torch.nn.functional as F
 
-import intel_extension_for_pytorch as ipex
 MACHINE = platform.machine()
 
 
