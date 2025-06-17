@@ -22,7 +22,6 @@ import torch
 import torch.nn.functional as F
 from scipy.sparse.csgraph import shortest_path
 from torch import nn
-import intel_extension_for_pytorch as ipex
 import chroma.utility.chroma
 from chroma.data.protein import Protein
 from chroma.data.xcs import validate_XC
