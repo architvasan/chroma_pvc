@@ -20,7 +20,6 @@ import torch
 from PIL import Image, ImageDraw, ImageFont
 from sklearn.decomposition import PCA
 from torch import nn
-import intel_extension_for_pytorch as ipex
 import chroma
 from chroma.constants import AA20
 from chroma.data import Protein
