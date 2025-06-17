@@ -23,7 +23,6 @@ from typing import Callable, List, Optional, Tuple
 
 import torch
 
-import intel_extension_for_pytorch as ipex
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 from tqdm.autonotebook import tqdm
