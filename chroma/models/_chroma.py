@@ -23,7 +23,6 @@ from typing import List, Literal, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-import intel_extension_for_pytorch as ipex
 from chroma.constants import AA20_3
 from chroma.data.protein import Protein
 from chroma.layers.structure.backbone import ProteinBackbone
